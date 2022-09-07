@@ -61,15 +61,14 @@ $lang['OvhDomains.!error.secret_key.valid'] = 'Invalid Secret Key';
 $lang['OvhDomains.!error.consumer_key.valid'] = 'Invalid Consumer Key';
 $lang['OvhDomains.!error.endpoint.valid'] = 'Invalid Endpoint';
 $lang['OvhDomains.!error.module_row.missing'] = 'An internal error occurred. The module row is unavailable.';
+$lang['OvhDomains.!error.domain.valid'] = 'Invalid domain';
+$lang['OvhDomains.!error.nameserver.valid'] = 'Invalid Nameserver %1$s.'; // %1$s is the number of the nameserver
 
 
 // WHOIS
 $lang['OvhDomains.tab_whois'] = 'WHOIS';
 $lang['OvhDomains.tab_whois.heading'] = 'WHOIS';
-$lang['OvhDomains.tab_whois.section_admin'] = 'Administrative';
-$lang['OvhDomains.tab_whois.section_billing'] = 'Billing';
-$lang['OvhDomains.tab_whois.section_tech'] = 'Technical';
-$lang['OvhDomains.tab_whois.field_submit'] = 'Update Contacts';
+$lang['OvhDomains.tab_whois.field_submit'] = 'Update WHOIS';
 
 
 // Nameservers
@@ -100,10 +99,7 @@ $lang['OvhDomains.tab_settings.field_submit'] = 'Save Settings';
 // Client WHOIS
 $lang['OvhDomains.tab_client_whois'] = 'WHOIS';
 $lang['OvhDomains.tab_client_whois.heading'] = 'WHOIS';
-$lang['OvhDomains.tab_client_whois.section_admin'] = 'Administrative';
-$lang['OvhDomains.tab_client_whois.section_billing'] = 'Billing';
-$lang['OvhDomains.tab_client_whois.section_tech'] = 'Technical';
-$lang['OvhDomains.tab_client_whois.field_submit'] = 'Update Contacts';
+$lang['OvhDomains.tab_client_whois.field_submit'] = 'Update WHOIS';
 
 
 // Client Nameservers

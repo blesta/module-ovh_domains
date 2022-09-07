@@ -6,54 +6,30 @@
         ?>
         <div class="row panel-fix">
             <div class="col-md-12">
-                <ul class="nav nav-tabs">
+                <?php
+                foreach ($whois_fields ?? [] as $name => $field) {
+                ?>
+                <div class="form-group">
                     <?php
-                    $i = 0;
-                    foreach ($vars ?? [] as $key => $contact) {
-                    ?>
-                        <li class="nav-item"><a href="#<?php echo $this->Html->safe($key);?>" class="nav-link<?php echo $i == 0 ? ' active' : '';?>" data-toggle="tab"><?php $this->_('OvhDomains.tab_client_whois.section_' . $key);?></a></li>
-                    <?php
-                        $i++;
-                    }
-                    ?>
-                </ul>
+                    $this->Form->label($field['label'], $name);
 
-                <div class="tab-content">
-                    <?php
-                    $i = 0;
-                    foreach ($vars ?? [] as $key => $contact) {
-                    ?>
-                    <div class="tab-pane fade show<?php echo $i == 0 ? ' active' : '';?>" id="<?php echo $this->Html->safe($key);?>">
-                        <?php
-                        foreach ($whois_fields ?? [] as $name => $field) {
-                        ?>
-                        <div class="form-group">
-                            <?php
-                            $this->Form->label($field['label'], $name);
-
-                            if ($field['type'] == 'select') {
-                                $options = [];
-                                if (!is_array($field['options'])) {
-                                    $options = ${$field['options']} ?? [];
-                                } else {
-                                    $options = $field['options'] ?? [];
-                                }
-
-                                $this->Form->fieldSelect($key . '[' . $name . ']', $options, ($vars->{$key}[$name] ?? ''), ['id' => $name, 'class'=>'form-control']);
-                            } else {
-                                $this->Form->fieldText($key . '[' . $name . ']', ($vars->{$key}[$name] ?? ''), ['id' => $name, 'class'=>'form-control', 'placeholder' => $field['label']]);
-                            }
-                            ?>
-                        </div>
-                        <?php
+                    if ($field['type'] == 'select') {
+                        $options = [];
+                        if (!is_array($field['options'])) {
+                            $options = ${$field['options']} ?? [];
+                        } else {
+                            $options = $field['options'] ?? [];
                         }
-                        ?>
-                    </div>
-                    <?php
-                        $i++;
+
+                        $this->Form->fieldSelect($name, $options, ($vars->{$name} ?? ''), ['id' => $name, 'class'=>'form-control']);
+                    } else {
+                        $this->Form->fieldText($name, ($vars->{$name} ?? ''), ['id' => $name, 'class'=>'form-control', 'placeholder' => $field['label']]);
                     }
                     ?>
                 </div>
+                <?php
+                }
+                ?>
             </div>
         </div>
         <button class="btn btn-light float-right" type="submit">

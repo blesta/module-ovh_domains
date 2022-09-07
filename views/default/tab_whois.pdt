@@ -1,12 +1,9 @@
 
     <?php
     $this->Form->create();
-
-    $i = 0;
-    foreach ($vars ?? [] as $key => $contact) {
     ?>
-    <div class="title_row<?php echo ($i == 0 ? ' first' : '');?>">
-        <h3><?php $this->_('OvhDomains.tab_whois.section_' . $key);?></h3>
+    <div class="title_row first">
+        <h3><?php $this->_('OvhDomains.tab_whois.heading');?></h3>
     </div>
 
     <div class="pad">
@@ -26,9 +23,9 @@
                         $options = $field['options'] ?? [];
                     }
 
-                    $this->Form->fieldSelect($key . '[' . $name . ']', $options, ($vars->{$key}[$name] ?? ''), ['id' => $name]);
+                    $this->Form->fieldSelect($name, $options, ($vars->{$name} ?? ''), ['id' => $name]);
                 } else {
-                    $this->Form->fieldText($key . '[' . $name . ']', ($vars->{$key}[$name] ?? ''), ['id' => $name]);
+                    $this->Form->fieldText($name, ($vars->{$name} ?? ''), ['id' => $name]);
                 }
                 ?>
             </li>
@@ -37,10 +34,6 @@
             ?>
         </ul>
     </div>
-    <?php
-        $i++;
-    }
-    ?>
 
     <div class="button_row">
         <?php

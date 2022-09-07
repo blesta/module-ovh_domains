@@ -530,6 +530,19 @@ class OvhDomains extends RegistrarModule
             return;
         }
 
+        // Set input fields
+        if (array_key_exists('auth_info', $vars)) {
+            $input_fields = array_merge(
+                Configure::get('OvhDomains.transfer_fields'),
+                Configure::get('OvhDomains.nameserver_fields')
+            );
+        } else {
+            $input_fields = array_merge(
+                Configure::get('OvhDomains.domain_fields'),
+                Configure::get('OvhDomains.nameserver_fields')
+            );
+        }
+
         // Initialize API
         $api = $this->getApi($row->meta->application_key, $row->meta->secret_key, $row->meta->consumer_key, $row->meta->endpoint);
 
@@ -849,21 +862,24 @@ class OvhDomains extends RegistrarModule
             'domain' => [
                 'valid' => [
                     'if_set' => $edit,
-                    'rule' => true,
+                    'rule' => function ($domain) {
+                        $validator = new Server();
+
+                        return $validator->isDomain($domain);
+                    },
                     'message' => Language::_('OvhDomains.!error.domain.valid', true)
                 ]
             ]
         ];
 
-        // Unset irrelevant rules when editing a service
-        if ($edit) {
-            $edit_fields = [];
-
-            foreach ($rules as $field => $rule) {
-                if (!in_array($field, $edit_fields)) {
-                    unset($rules[$field]);
-                }
-            }
+        for ($i = 1; $i <= 5; $i++) {
+            $rules['ns[' . $i . ']'] = [
+                'valid' => [
+                    'if_set' => true,
+                    'rule' => [[$this, 'validateHostName']],
+                    'message' => Language::_('OvhDomains.!error.nameserver.valid', true, $i)
+                ]
+            ];
         }
 
         return $rules;
@@ -970,43 +986,15 @@ class OvhDomains extends RegistrarModule
 
         // Fetch domain contacts
         try {
-            $contacts = $this->getDomainContacts($service_fields->domain, $service->module_row_id);
-
-            $vars = (object) [];
-            foreach ($contacts as $contact) {
-                if (!is_array($contact)) {
-                    continue;
-                }
-
-                // Set contact type
-                $type = $contact['external_id'] ?? '';
-                unset($contact['external_id']);
-
-                if (!isset($vars->$type)) {
-                    $vars->$type = $contact;
-                }
-            }
+            $contact = $this->getDomainContacts($service_fields->domain, $service->module_row_id);
+            $vars = (object) ($contact[0] ?? []);
         } catch (Throwable $e) {
             $this->Input->setErrors(['errors' => ['contacts' => $e->getMessage()]]);
         }
 
         // Update whois contact
         if (!empty($post)) {
-            $params = [];
-            foreach ($post as $type => $contact) {
-                $formatted_contact = [
-                    'external_id' => $type
-                ];
-                foreach ($contact as $contact_field => $contact_value) {
-                    if (isset($remote_fields_map[$contact_field])) {
-                        $formatted_contact[$remote_fields_map[$contact_field]] = $contact_value;
-                    }
-                }
-                $params[] = $formatted_contact;
-            }
-
-            $this->setDomainContacts($service_fields->domain, $params, $service->module_row_id);
-
+            $this->setDomainContacts($service_fields->domain, $post, $service->module_row_id);
             $vars = (object) $post;
         }
 
@@ -1259,43 +1247,15 @@ class OvhDomains extends RegistrarModule
 
         // Fetch domain contacts
         try {
-            $contacts = $this->getDomainContacts($service_fields->domain, $service->module_row_id);
-
-            $vars = (object) [];
-            foreach ($contacts as $contact) {
-                if (!is_array($contact)) {
-                    continue;
-                }
-
-                // Set contact type
-                $type = $contact['external_id'] ?? '';
-                unset($contact['external_id']);
-
-                if (!isset($vars->$type)) {
-                    $vars->$type = $contact;
-                }
-            }
+            $contact = $this->getDomainContacts($service_fields->domain, $service->module_row_id);
+            $vars = (object) ($contact[0] ?? []);
         } catch (Throwable $e) {
             $this->Input->setErrors(['errors' => ['contacts' => $e->getMessage()]]);
         }
 
         // Update whois contact
         if (!empty($post)) {
-            $params = [];
-            foreach ($post as $type => $contact) {
-                $formatted_contact = [
-                    'external_id' => $type
-                ];
-                foreach ($contact as $contact_field => $contact_value) {
-                    if (isset($remote_fields_map[$contact_field])) {
-                        $formatted_contact[$remote_fields_map[$contact_field]] = $contact_value;
-                    }
-                }
-                $params[] = $formatted_contact;
-            }
-
-            $this->setDomainContacts($service_fields->domain, $params, $service->module_row_id);
-
+            $this->setDomainContacts($service_fields->domain, $post, $service->module_row_id);
             $vars = (object) $post;
         }
 
@@ -1884,45 +1844,13 @@ class OvhDomains extends RegistrarModule
         $api = $this->getApi($row->meta->application_key, $row->meta->secret_key, $row->meta->consumer_key, $row->meta->endpoint);
 
         // Set request parameters
-        $response = $this->apiRequest($api, '/domain/' . $domain . '/serviceInfos', $row->meta->endpoint, [], 'get');
+        $response = $this->apiRequest($api, '/domain/' . $domain, $row->meta->endpoint, [], 'get');
 
         $contacts = [];
-        if (isset($response->contactAdmin)) {
-            $contact = $this->getContactByEmail($response->contactAdmin, $module_row_id);
+        if (isset($response->whoisOwner)) {
+            $contact = $this->apiRequest($api, '/domain/contact/' . $response->whoisOwner, $row->meta->endpoint, [], 'get');
             $contacts[] = [
-                'external_id' => 'admin',
-                'email' => $contact->email ?? '',
-                'phone' => $contact->cellPhone ?? '',
-                'first_name' => $contact->firstName ?? '',
-                'last_name' => $contact->lastName ?? '',
-                'address1' => $contact->address['line1'] ?? '',
-                'address2' => $contact->address['line2'] ?? '',
-                'city' => $contact->address['city'] ?? '',
-                'state' => $contact->address['province'] ?? '',
-                'zip' => $contact->address['zip'] ?? '',
-                'country' => $contact->address['country'] ?? ''
-            ];
-        }
-        if (isset($response->contactBilling)) {
-            $contact = $this->getContactByEmail($response->contactBilling, $module_row_id);
-            $contacts[] = [
-                'external_id' => 'billing',
-                'email' => $contact->email ?? '',
-                'phone' => $contact->cellPhone ?? '',
-                'first_name' => $contact->firstName ?? '',
-                'last_name' => $contact->lastName ?? '',
-                'address1' => $contact->address['line1'] ?? '',
-                'address2' => $contact->address['line2'] ?? '',
-                'city' => $contact->address['city'] ?? '',
-                'state' => $contact->address['province'] ?? '',
-                'zip' => $contact->address['zip'] ?? '',
-                'country' => $contact->address['country'] ?? ''
-            ];
-        }
-        if (isset($response->contactTech)) {
-            $contact = $this->getContactByEmail($response->contactTech, $module_row_id);
-            $contacts[] = [
-                'external_id' => 'tech',
+                'external_id' => $contact->id ?? '',
                 'email' => $contact->email ?? '',
                 'phone' => $contact->cellPhone ?? '',
                 'first_name' => $contact->firstName ?? '',
@@ -1937,26 +1865,6 @@ class OvhDomains extends RegistrarModule
         }
 
         return $contacts;
-    }
-
-    /**
-     * @param $email
-     * @param null $module_row_id
-     * @return mixed|null
-     */
-    private function getContactByEmail($email, $module_row_id = null)
-    {
-        $row = $this->getModuleRow($module_row_id);
-        $api = $this->getApi($row->meta->application_key, $row->meta->secret_key, $row->meta->consumer_key, $row->meta->endpoint);
-
-        $contacts = $this->apiRequest($api, '/domain/contact', $row->meta->endpoint, [], 'get');
-        foreach ($contacts as $contact) {
-            if ($contact['email'] == $email) {
-                return (object) $contact;
-            }
-        }
-
-        return null;
     }
 
     /**
@@ -2056,32 +1964,38 @@ class OvhDomains extends RegistrarModule
         $row = $this->getModuleRow($module_row_id);
         $api = $this->getApi($row->meta->application_key, $row->meta->secret_key, $row->meta->consumer_key, $row->meta->endpoint);
 
-        $params = [];
-        foreach ($vars as $contact) {
-            // Create new contact
-            $contact_params = [
-                'email' => $contact['email'] ?? '',
-                'cellPhone' => $contact['phone'] ?? '',
-                'firstName' => $contact['first_name'] ?? '',
-                'lastName' => $contact['last_name'] ?? '',
-                'address' => [
-                    'line1' => $contact['address1'] ?? '',
-                    'line2' => $contact['address2'] ?? '',
-                    'city' => $contact['city'] ?? '',
-                    'province' => $contact['state'] ?? '',
-                    'country' => $contact['country'] ?? '',
-                    'zip' => $contact['zip'] ?? ''
-                ]
-            ];
-            $contact_response = $this->apiRequest($api, '/domain/contact', $row->meta->endpoint, $contact_params, 'post');
+        // Get domain whois owner
+        $domain_info = $this->apiRequest($api, '/domain/' . $domain, $row->meta->endpoint, [], 'get');
 
-            // Change domain contact
-            $params['contact' . ucfirst($contact['external_id'])] = $contact_response->id ?? '';
+        // Update contact
+        $contact_params = [
+            'email' => $vars['email'] ?? '',
+            'cellPhone' => $vars['phone'] ?? '',
+            'firstName' => $vars['first_name'] ?? '',
+            'lastName' => $vars['last_name'] ?? '',
+            'address' => [
+                'line1' => $vars['address1'] ?? '',
+                'line2' => $vars['address2'] ?? '',
+                'city' => $vars['city'] ?? '',
+                'province' => $vars['state'] ?? '',
+                'country' => $vars['country'] ?? '',
+                'zip' => $vars['zip'] ?? ''
+            ]
+        ];
+
+        if (!empty($domain_info->whoisOwner)) {
+            // Merge new parameters with the current remote parameters
+            $external_contact = (array) $this->apiRequest($api, '/domain/contact/' . $domain_info->whoisOwner, $row->meta->endpoint, [], 'get');
+            if (isset($external_contact['id'])) {
+                unset($external_contact['id']);
+            }
+            $contact_params = array_merge($external_contact, $contact_params);
+
+            // Update contact
+            $contact_response = $this->apiRequest($api, '/domain/contact/' . $domain_info->whoisOwner, $row->meta->endpoint, $contact_params, 'put');
         }
 
-        $response = $this->apiRequest($api, '/domain/' . $domain . '/changeContact', $row->meta->endpoint, $params, 'post');
-
-        return !empty($response);
+        return !empty($contact_response);
     }
 
     /**
@@ -2373,11 +2287,16 @@ class OvhDomains extends RegistrarModule
                     return $response;
                 }
             } catch (Throwable $e) {
-                $this->Input->setErrors(['errors' => [$endpoint => $e->getMessage()]]);
+                if ($e->hasResponse()) {
+                    $response = $e->getResponse()->getBody()->getContents();
+                    if (!empty($response)) {
+                        $response = json_decode($response);
+                    }
 
-                if (method_exists($e, 'getResponse')) {
-                    $this->log($request_url, $e->getResponseBodySummary($e->getResponse()), 'output', false);
+                    $this->Input->setErrors(['errors' => [$endpoint => $response->message ?? $e->getMessage()]]);
+                    $this->log($request_url, serialize($response), 'output', false);
                 } else {
+                    $this->Input->setErrors(['errors' => [$endpoint => $e->getMessage()]]);
                     $this->log($request_url, serialize($e->getTrace()), 'output', false);
                 }
             }
