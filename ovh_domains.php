@@ -1645,6 +1645,7 @@ class OvhDomains extends RegistrarModule
             $domain_cart = $this->apiRequest($api, '/order/cart/' . $cart_id . '/domain', $row->meta->endpoint, $domain, 'post');
         }
 
+        return isset($domain_cart->settings['pricingMode']) && $domain_cart->settings['pricingMode'] == 'transfer-default';
     }
 
     /**
