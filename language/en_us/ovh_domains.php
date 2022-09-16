@@ -62,7 +62,9 @@ $lang['OvhDomains.!error.consumer_key.valid'] = 'Invalid Consumer Key';
 $lang['OvhDomains.!error.endpoint.valid'] = 'Invalid Endpoint';
 $lang['OvhDomains.!error.module_row.missing'] = 'An internal error occurred. The module row is unavailable.';
 $lang['OvhDomains.!error.domain.valid'] = 'Invalid domain';
-$lang['OvhDomains.!error.nameserver.valid'] = 'Invalid Nameserver %1$s.'; // %1$s is the number of the nameserver
+$lang['OvhDomains.!error.epp_code.valid'] = 'EPP Code must be 1 or 0.';
+$lang['OvhDomains.!error.ns_count'] = 'At least 2 name servers are required.';
+$lang['OvhDomains.!error.ns_valid'] = 'One or more name servers are invalid.';
 
 
 // WHOIS
@@ -167,6 +169,11 @@ $lang['OvhDomains.service_fields.domain'] = 'Domain';
 
 // Package Fields
 $lang['OvhDomains.package_fields.epp_code'] = 'EPP Code';
+$lang['OvhDomains.package_fields.ns1'] = 'Nameserver 1';
+$lang['OvhDomains.package_fields.ns2'] = 'Nameserver 2';
+$lang['OvhDomains.package_fields.ns3'] = 'Nameserver 3';
+$lang['OvhDomains.package_fields.ns4'] = 'Nameserver 4';
+$lang['OvhDomains.package_fields.ns5'] = 'Nameserver 5';
 
 $lang['OvhDomains.package_field.tooltip.epp_code'] = 'Whether to allow users to request an EPP Code through the Blesta service interface.';
 $lang['OvhDomains.package_fields.tld_options'] = 'TLDs';
