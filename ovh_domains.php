@@ -1708,7 +1708,7 @@ class OvhDomains extends RegistrarModule
             // Add domain to be transferred to the cart
             $transfer = [
                 'domain' => $domain,
-                'duration' => 'P' . ($vars['qty'] ?? 1) . 'Y'
+                'duration' => 'P' . ($vars['qty'] ?? $vars['years'] ?? 1) . 'Y'
             ];
             $this->apiRequest($api, '/order/cart/' . $cart_id . '/domain', $row->meta->endpoint, $transfer, 'post');
 
@@ -1790,7 +1790,7 @@ class OvhDomains extends RegistrarModule
         unset($vars['years']);
 
         $transfer = $this->registerDomain($domain, $module_row_id, $vars);
-        $this->renewDomain($domain, $module_row_id, array_merge($vars, ['qty' => $qty]));
+        $this->renewDomain($domain, $module_row_id, array_merge($vars, ['years' => $qty]));
 
         return $transfer;
     }
