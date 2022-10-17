@@ -563,9 +563,22 @@ class OvhDomains extends RegistrarModule
             return;
         }
 
+        // Set registration term
+        $vars['years'] = 1;
+        foreach ($package->pricing as $pricing) {
+            if ($pricing->id == ($vars['pricing_id'] ?? null)) {
+                $vars['years'] = $pricing->term;
+                break;
+            }
+        }
+
         // Only provision the service if 'use_module' is true
         if ($vars['use_module'] == 'true') {
-            $domain = $this->registerDomain($vars['domain'], $row->id, $vars);
+            if (isset($vars['transfer'])) {
+                $domain = $this->transferDomain($vars['domain'], $row->id, $vars);
+            } else {
+                $domain = $this->registerDomain($vars['domain'], $row->id, $vars);
+            }
 
             if ($domain) {
                 if (!empty($nameservers)) {
@@ -2107,108 +2120,81 @@ class OvhDomains extends RegistrarModule
      */
     public function getFilteredTldPricing($module_row_id = null, $filters = [])
     {
-        // Fetch the TLDs results from the cache, if they exist
-        $cache = Cache::fetchCache(
-            'tlds_prices',
-            Configure::get('Blesta.company_id') . DS . 'modules' . DS . 'ovh_domains' . DS
-        );
+        // Get all TLDs
+        $tlds = $this->getTlds($module_row_id);
 
-        if ($cache) {
-            $response = unserialize(base64_decode($cache));
+        // Get all currencies
+        Loader::loadModels($this, ['Currencies']);
+
+        $currencies = [];
+        $company_currencies = $this->Currencies->getAll(Configure::get('Blesta.company_id'));
+        foreach ($company_currencies as $currency) {
+            $currencies[$currency->code] = $currency;
         }
 
-        // Get remote price list
-        if (!isset($response)) {
-            $tlds = $this->getTlds($module_row_id);
-
-            // Get all currencies
-            Loader::loadModels($this, ['Currencies']);
-
-            $currencies = [];
-            $company_currencies = $this->Currencies->getAll(Configure::get('Blesta.company_id'));
-            foreach ($company_currencies as $currency) {
-                $currencies[$currency->code] = $currency;
+        // Format pricing
+        $response = [];
+        foreach ($tlds as $tld) {
+            $tld = '.' . ltrim($tld, '.');
+            if (!isset($response[$tld])) {
+                $response[$tld] = [];
             }
 
-            // Format pricing
-            $response = [];
-            foreach ($tlds as $tld) {
-                $tld = '.' . ltrim($tld, '.');
-                if (!isset($response[$tld])) {
-                    $response[$tld] = [];
-                }
+            // Filter by 'tlds'
+            if (isset($filters['tlds']) && !in_array($tld, $filters['tlds'])) {
+                continue;
+            }
 
-                // Filter by 'tlds'
-                if (isset($filters['tlds']) && !in_array($tld, $filters['tlds'])) {
+            // Get TLD price
+            $tld_price = $this->getTldPrice($tld, $module_row_id);
+
+            // Get currency
+            $currency = $tld_price['register']->currencyCode ?? 'CAD';
+
+            // Validate if the reseller currency exists in the company
+            if (!isset($currencies[$currency])) {
+                $this->Input->setErrors([
+                    'currency' => [
+                        'not_exists' => Language::_('OvhDomains.!error.currency.not_exists', true)
+                    ]
+                ]);
+
+                return;
+            }
+
+            // Calculate term prices
+            for ($i = 1; $i <= 10; $i++) {
+                // Filter by 'terms'
+                if (isset($filters['terms']) && !in_array($i, $filters['terms'])) {
                     continue;
                 }
 
-                // Get TLD price
-                $tld_price = $this->getTldPrice($tld, $module_row_id);
-
-                // Get currency
-                $currency = $tld_price['register']->currencyCode ?? 'CAD';
-
-                // Validate if the reseller currency exists in the company
-                if (!isset($currencies[$currency])) {
-                    $this->Input->setErrors([
-                            'currency' => [
-                                'not_exists' => Language::_('OvhDomains.!error.currency.not_exists', true)
-                            ]
-                        ]);
-
-                    return;
-                }
-
-                // Calculate term prices
-                for ($i = 1; $i <= 10; $i++) {
-                    // Filter by 'terms'
-                    if (isset($filters['terms']) && !in_array($i, $filters['terms'])) {
+                foreach ($currencies as $currency) {
+                    // Filter by 'currencies'
+                    if (isset($filters['currencies']) && !in_array($currency->code, $filters['currencies'])) {
                         continue;
                     }
 
-                    foreach ($currencies as $currency) {
-                        // Filter by 'currencies'
-                        if (isset($filters['currencies']) && !in_array($currency->code, $filters['currencies'])) {
-                            continue;
-                        }
-
-                        if (!isset($response[$tld][$currency->code])) {
-                            $response[$tld][$currency->code] = [];
-                        }
-
-                        if (!isset($response[$tld][$currency->code][$i])) {
-                            $response[$tld][$currency->code][$i] = [
-                                'register' => null,
-                                'transfer' => null,
-                                'renew' => null
-                            ];
-                        }
-
-                        foreach ($tld_price as $category => $price) {
-                            $response[$tld][$currency->code][$i][$category] = $this->Currencies->convert(
-                                ($price->value ?? 0) * $i,
-                                $price->currencyCode ?? 'CAD',
-                                $currency->code,
-                                Configure::get('Blesta.company_id')
-                            );
-                        }
+                    if (!isset($response[$tld][$currency->code])) {
+                        $response[$tld][$currency->code] = [];
                     }
-                }
-            }
 
-            // Save pricing in cache
-            if (Configure::get('Caching.on') && is_writable(CACHEDIR)) {
-                try {
-                    Cache::writeCache(
-                        'tlds_prices',
-                        base64_encode(serialize($response)),
-                        strtotime(Configure::get('Blesta.cache_length')) - time(),
-                        Configure::get('Blesta.company_id') . DS . 'modules' . DS . 'ovh_domains' . DS
-                    );
-                } catch (Exception $e) {
-                    // Write to cache failed, so disable caching
-                    Configure::set('Caching.on', false);
+                    if (!isset($response[$tld][$currency->code][$i])) {
+                        $response[$tld][$currency->code][$i] = [
+                            'register' => null,
+                            'transfer' => null,
+                            'renew' => null
+                        ];
+                    }
+
+                    foreach ($tld_price as $category => $price) {
+                        $response[$tld][$currency->code][$i][$category] = $this->Currencies->convert(
+                            ($price->value ?? 0) * $i,
+                            $price->currencyCode ?? 'CAD',
+                            $currency->code,
+                            Configure::get('Blesta.company_id')
+                        );
+                    }
                 }
             }
         }
@@ -2228,19 +2214,46 @@ class OvhDomains extends RegistrarModule
         $row = $this->getModuleRow($module_row_id);
         $api = $this->getApi($row->meta->application_key, $row->meta->secret_key, $row->meta->consumer_key, $row->meta->endpoint);
 
-        // Create a new order cart
-        $subsidiary = trim(strtoupper(str_replace('ovh-', '', $row->meta->endpoint)));
-        $cart_params = [
-            'ovhSubsidiary' => ($subsidiary == 'EU') ? 'FR' : $subsidiary
-        ];
-        $cart = $this->apiRequest($api, '/order/cart', $row->meta->endpoint, $cart_params, 'post');
+        // Fetch the TLD pricing from the cache, if they exist
+        $cache = Cache::fetchCache(
+            'tlds_price_' . $tld,
+            Configure::get('Blesta.company_id') . DS . 'modules' . DS . 'ovh_domains' . DS
+        );
 
-        // Add the domain to the cart
-        $domain = [
-            'domain' => md5(time() . rand(0, 255)) . '.' . $tld,
-            'duration' => 'P1Y'
-        ];
-        $response = $this->apiRequest($api, '/order/cart/' . ($cart->cartId ?? '') . '/domain', $row->meta->endpoint, $domain, 'post');
+        if ($cache) {
+            $response = unserialize(base64_decode($cache));
+        }
+
+        // Create a new order cart
+        if (!isset($response)) {
+            $subsidiary = trim(strtoupper(str_replace('ovh-', '', $row->meta->endpoint)));
+            $cart_params = [
+                'ovhSubsidiary' => ($subsidiary == 'EU') ? 'FR' : $subsidiary
+            ];
+            $cart = $this->apiRequest($api, '/order/cart', $row->meta->endpoint, $cart_params, 'post');
+
+            // Add the domain to the cart
+            $domain = [
+                'domain' => md5(time() . rand(0, 255)) . '.' . $tld,
+                'duration' => 'P1Y'
+            ];
+            $response = $this->apiRequest($api, '/order/cart/' . ($cart->cartId ?? '') . '/domain', $row->meta->endpoint, $domain, 'post');
+
+            // Save pricing in cache
+            if (Configure::get('Caching.on') && is_writable(CACHEDIR)) {
+                try {
+                    Cache::writeCache(
+                        'tlds_price_' . $tld,
+                        base64_encode(serialize($response)),
+                        strtotime(Configure::get('Blesta.cache_length')) - time(),
+                        Configure::get('Blesta.company_id') . DS . 'modules' . DS . 'ovh_domains' . DS
+                    );
+                } catch (Exception $e) {
+                    // Write to cache failed, so disable caching
+                    Configure::set('Caching.on', false);
+                }
+            }
+        }
 
         $pricing = [];
         if (!empty($response->prices)) {
