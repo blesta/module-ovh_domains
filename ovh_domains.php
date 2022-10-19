@@ -1048,7 +1048,11 @@ class OvhDomains extends RegistrarModule
         // Update domain nameservers
         if (!empty($post)) {
             $this->setDomainNameservers($service_fields->domain, $service->module_row_id, $post['ns']);
-            $vars = (object) $post;
+
+            $vars = (object) [];
+            foreach ($post['ns'] as $ns => $nameserver) {
+                $vars->{'ns[' . $ns . ']'} = $nameserver;
+            }
         }
 
         $this->view->set('service_fields', $service_fields);
@@ -1309,7 +1313,11 @@ class OvhDomains extends RegistrarModule
         // Update domain nameservers
         if (!empty($post)) {
             $this->setDomainNameservers($service_fields->domain, $service->module_row_id, $post['ns']);
-            $vars = (object) $post;
+
+            $vars = (object) [];
+            foreach ($post['ns'] as $ns => $nameserver) {
+                $vars->{'ns[' . $ns . ']'} = $nameserver;
+            }
         }
 
         $this->view->set('service_fields', $service_fields);
@@ -2003,7 +2011,11 @@ class OvhDomains extends RegistrarModule
         // Set request parameters
         $params = [];
         foreach ($vars as $ns) {
-            $params[] = [
+            if (empty($ns)) {
+                continue;
+            }
+
+            $params['nameServers'][] = [
                 'host' => trim($ns),
                 'ip' => gethostbyname(trim($ns))
             ];
@@ -2091,7 +2103,7 @@ class OvhDomains extends RegistrarModule
             }
         }
 
-        return $response;
+        return (array) $response;
     }
 
     /**
@@ -2159,7 +2171,7 @@ class OvhDomains extends RegistrarModule
                     ]
                 ]);
 
-                return;
+                return [];
             }
 
             // Calculate term prices
@@ -2216,7 +2228,7 @@ class OvhDomains extends RegistrarModule
 
         // Fetch the TLD pricing from the cache, if they exist
         $cache = Cache::fetchCache(
-            'tlds_price_' . $tld,
+            'tlds_price_' . ltrim($tld, '.'),
             Configure::get('Blesta.company_id') . DS . 'modules' . DS . 'ovh_domains' . DS
         );
 
@@ -2234,7 +2246,7 @@ class OvhDomains extends RegistrarModule
 
             // Add the domain to the cart
             $domain = [
-                'domain' => md5(time() . rand(0, 255)) . '.' . $tld,
+                'domain' => md5(time() . rand(0, 255)) . '.' . ltrim($tld, '.'),
                 'duration' => 'P1Y'
             ];
             $response = $this->apiRequest($api, '/order/cart/' . ($cart->cartId ?? '') . '/domain', $row->meta->endpoint, $domain, 'post');
@@ -2243,7 +2255,7 @@ class OvhDomains extends RegistrarModule
             if (Configure::get('Caching.on') && is_writable(CACHEDIR)) {
                 try {
                     Cache::writeCache(
-                        'tlds_price_' . $tld,
+                        'tlds_price_' . ltrim($tld, '.'),
                         base64_encode(serialize($response)),
                         strtotime(Configure::get('Blesta.cache_length')) - time(),
                         Configure::get('Blesta.company_id') . DS . 'modules' . DS . 'ovh_domains' . DS
