@@ -240,7 +240,7 @@ class OvhDomains extends RegistrarModule
     {
         $validator = new Server();
 
-        return $validator->isDomain($host_name) || $validator->isIp($host_name);
+        return $validator->isDomain($host_name) || $validator->isIp($host_name) || empty($host_name);
     }
 
     /**
@@ -552,7 +552,7 @@ class OvhDomains extends RegistrarModule
         // Build nameservers
         $nameservers = [];
         for ($i = 1; $i <= 5; $i++) {
-            if (isset($vars['ns'][$i])) {
+            if (!empty($vars['ns'][$i])) {
                 $nameservers[] = $vars['ns'][$i];
             }
         }
@@ -1327,7 +1327,7 @@ class OvhDomains extends RegistrarModule
         $this->view->set('vars', ($vars ?? new stdClass()));
 
         $this->view->setDefaultView('components' . DS . 'modules' . DS . 'ovh_domains' . DS);
-        
+
         return $this->view->fetch();
     }
 
@@ -1518,6 +1518,10 @@ class OvhDomains extends RegistrarModule
                 $vars->{'ns[' . $i . ']'} = $ns;
                 $i++;
             }
+        } else {
+            foreach ($vars->ns ?? [] as $i => $ns) {
+                $vars->{'ns[' . $i . ']'} = $ns;
+            }
         }
 
         // Handle transfer request
@@ -1554,6 +1558,10 @@ class OvhDomains extends RegistrarModule
             foreach ($package->meta->ns as $ns) {
                 $vars->{'ns[' . $i . ']'} = $ns;
                 $i++;
+            }
+        } else {
+            foreach ($vars->ns ?? [] as $i => $ns) {
+                $vars->{'ns[' . $i . ']'} = $ns;
             }
         }
 
@@ -1756,7 +1764,7 @@ class OvhDomains extends RegistrarModule
         if (!empty($domain_order->orderId)) {
             $order = $this->apiRequest($api, '/me/order/' . $domain_order->orderId . '/status', $row->meta->endpoint, [], 'get');
 
-            if (in_array($order->status, ['delivered', 'delivering', 'checking'])) {
+            if (in_array($order->status ?? $order->scalar, ['delivered', 'delivering', 'checking'])) {
                 return true;
             }
         }
@@ -2148,13 +2156,14 @@ class OvhDomains extends RegistrarModule
         $response = [];
         foreach ($tlds as $tld) {
             $tld = '.' . ltrim($tld, '.');
-            if (!isset($response[$tld])) {
-                $response[$tld] = [];
-            }
 
             // Filter by 'tlds'
             if (isset($filters['tlds']) && !in_array($tld, $filters['tlds'])) {
                 continue;
+            }
+
+            if (!isset($response[$tld])) {
+                $response[$tld] = [];
             }
 
             // Get TLD price
@@ -2201,8 +2210,8 @@ class OvhDomains extends RegistrarModule
 
                     foreach ($tld_price as $category => $price) {
                         $response[$tld][$currency->code][$i][$category] = $this->Currencies->convert(
-                            ($price->value ?? 0) * $i,
-                            $price->currencyCode ?? 'CAD',
+                            ($price['value'] ?? 0) * $i,
+                            $price['currencyCode'] ?? 'CAD',
                             $currency->code,
                             Configure::get('Blesta.company_id')
                         );
@@ -2270,14 +2279,14 @@ class OvhDomains extends RegistrarModule
         $pricing = [];
         if (!empty($response->prices)) {
             foreach ($response->prices as $price) {
-                if ($price->label == 'PRICE') {
-                    $price->label = 'REGISTER';
+                if ($price['label'] == 'PRICE') {
+                    $price['label'] = 'REGISTER';
                 }
-                if ($price->label == 'TOTAL') {
-                    $price->label = 'TRANSFER';
+                if ($price['label'] == 'TOTAL') {
+                    $price['label'] = 'TRANSFER';
                 }
 
-                $pricing[strtolower($price->label)] = $price->price;
+                $pricing[strtolower($price['label'])] = $price['price'];
             }
         }
 
