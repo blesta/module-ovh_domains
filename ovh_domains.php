@@ -78,17 +78,6 @@ class OvhDomains extends RegistrarModule
         // Load the helpers required for this view
         Loader::loadHelpers($this, ['Form', 'Html', 'Widget']);
 
-        if (!empty($vars)) {
-            // Set unset checkboxes
-            $checkbox_fields = [];
-
-            foreach ($checkbox_fields as $checkbox_field) {
-                if (!isset($vars[$checkbox_field])) {
-                    $vars[$checkbox_field] = 'false';
-                }
-            }
-        }
-
         $this->view->set('endpoints', array_combine(array_keys($this->endpoints), array_keys($this->endpoints)));
         $this->view->set('vars', (object) $vars);
 
@@ -115,15 +104,6 @@ class OvhDomains extends RegistrarModule
 
         if (empty($vars)) {
             $vars = $module_row->meta;
-        } else {
-            // Set unset checkboxes
-            $checkbox_fields = [];
-
-            foreach ($checkbox_fields as $checkbox_field) {
-                if (!isset($vars[$checkbox_field])) {
-                    $vars[$checkbox_field] = 'false';
-                }
-            }
         }
 
         $this->view->set('endpoints', array_combine(array_keys($this->endpoints), array_keys($this->endpoints)));
@@ -145,17 +125,8 @@ class OvhDomains extends RegistrarModule
      */
     public function addModuleRow(array &$vars)
     {
-        $meta_fields = ['application_key','secret_key','consumer_key','endpoint'];
+        $meta_fields = ['application_key', 'secret_key', 'consumer_key', 'endpoint'];
         $encrypted_fields = [];
-
-        // Set unset checkboxes
-        $checkbox_fields = [];
-
-        foreach ($checkbox_fields as $checkbox_field) {
-            if (!isset($vars[$checkbox_field])) {
-                $vars[$checkbox_field] = 'false';
-            }
-        }
 
         $this->Input->setRules($this->getRowRules($vars));
 
@@ -191,17 +162,8 @@ class OvhDomains extends RegistrarModule
      */
     public function editModuleRow($module_row, array &$vars)
     {
-        $meta_fields = ['application_key','secret_key','consumer_key','endpoint'];
+        $meta_fields = ['application_key', 'secret_key', 'consumer_key', 'endpoint'];
         $encrypted_fields = [];
-
-        // Set unset checkboxes
-        $checkbox_fields = [];
-
-        foreach ($checkbox_fields as $checkbox_field) {
-            if (!isset($vars[$checkbox_field])) {
-                $vars[$checkbox_field] = 'false';
-            }
-        }
 
         $this->Input->setRules($this->getRowRules($vars));
 
@@ -259,8 +221,7 @@ class OvhDomains extends RegistrarModule
             ],
             'endpoint' => [
                 'valid' => [
-                    'rule' => 'isEmpty',
-                    'negate' => true,
+                    'rule' => ['array_key_exists', $this->endpoints ?? []],
                     'message' => Language::_('OvhDomains.!error.endpoint.valid', true)
                 ]
             ]
@@ -279,7 +240,7 @@ class OvhDomains extends RegistrarModule
     {
         $validator = new Server();
 
-        return $validator->isDomain($host_name) || $validator->isIp($host_name);
+        return $validator->isDomain($host_name) || $validator->isIp($host_name) || empty($host_name);
     }
 
     /**
@@ -458,7 +419,7 @@ class OvhDomains extends RegistrarModule
             $fields->fieldCheckbox(
                 'meta[epp_code]',
                 'true',
-                (isset($vars->meta['epp_code']) ? $vars->meta['epp_code'] : null) == 'true',
+                ($vars->meta['epp_code'] ?? null) == 'true',
                 ['id' => 'ovh_domains_epp_code']
             )
         );
@@ -486,6 +447,19 @@ class OvhDomains extends RegistrarModule
             );
         }
         $fields->setField($tld_options);
+
+        // Set nameservers
+        for ($i = 1; $i <= 5; $i++) {
+            $type = $fields->label(Language::_('OvhDomains.package_fields.ns' . $i, true), 'ovh_ns' . $i);
+            $type->attach(
+                $fields->fieldText(
+                    'meta[ns][]',
+                    ($vars->meta['ns'][$i] ?? null),
+                    ['id' => 'ovh_ns' . $i]
+                )
+            );
+            $fields->setField($type);
+        }
 
         return $fields;
     }
@@ -578,7 +552,7 @@ class OvhDomains extends RegistrarModule
         // Build nameservers
         $nameservers = [];
         for ($i = 1; $i <= 5; $i++) {
-            if (isset($vars['ns'][$i])) {
+            if (!empty($vars['ns'][$i])) {
                 $nameservers[] = $vars['ns'][$i];
             }
         }
@@ -589,9 +563,22 @@ class OvhDomains extends RegistrarModule
             return;
         }
 
+        // Set registration term
+        $vars['years'] = 1;
+        foreach ($package->pricing as $pricing) {
+            if ($pricing->id == ($vars['pricing_id'] ?? null)) {
+                $vars['years'] = $pricing->term;
+                break;
+            }
+        }
+
         // Only provision the service if 'use_module' is true
         if ($vars['use_module'] == 'true') {
-            $domain = $this->registerDomain($vars['domain'], $row->id, $vars);
+            if (isset($vars['transfer'])) {
+                $domain = $this->transferDomain($vars['domain'], $row->id, $vars);
+            } else {
+                $domain = $this->registerDomain($vars['domain'], $row->id, $vars);
+            }
 
             if ($domain) {
                 if (!empty($nameservers)) {
@@ -869,18 +856,18 @@ class OvhDomains extends RegistrarModule
                     },
                     'message' => Language::_('OvhDomains.!error.domain.valid', true)
                 ]
+            ],
+            'ns' => [
+                'count'=>[
+                    'rule' => [[$this, 'validateNameServerCount']],
+                    'message' => Language::_('OvhDomains.!error.ns_count', true)
+                ],
+                'valid'=>[
+                    'rule'=>[[$this, 'validateNameServers']],
+                    'message' => Language::_('OvhDomains.!error.ns_valid', true)
+                ]
             ]
         ];
-
-        for ($i = 1; $i <= 5; $i++) {
-            $rules['ns[' . $i . ']'] = [
-                'valid' => [
-                    'if_set' => true,
-                    'rule' => [[$this, 'validateHostName']],
-                    'message' => Language::_('OvhDomains.!error.nameserver.valid', true, $i)
-                ]
-            ];
-        }
 
         return $rules;
     }
@@ -1052,7 +1039,7 @@ class OvhDomains extends RegistrarModule
                     continue;
                 }
 
-                $vars->{'ns' . ($ns + 1)} = $nameserver['url'];
+                $vars->{'ns[' . ($ns + 1) . ']'} = $nameserver['url'];
             }
         } catch (Throwable $e) {
             $this->Input->setErrors(['errors' => ['contacts' => $e->getMessage()]]);
@@ -1060,8 +1047,12 @@ class OvhDomains extends RegistrarModule
 
         // Update domain nameservers
         if (!empty($post)) {
-            $this->setDomainNameservers($service_fields->domain, $service->module_row_id, $post);
-            $vars = (object) $post;
+            $this->setDomainNameservers($service_fields->domain, $service->module_row_id, $post['ns']);
+
+            $vars = (object) [];
+            foreach ($post['ns'] as $ns => $nameserver) {
+                $vars->{'ns[' . $ns . ']'} = $nameserver;
+            }
         }
 
         $this->view->set('service_fields', $service_fields);
@@ -1141,7 +1132,7 @@ class OvhDomains extends RegistrarModule
         $this->view->set('service_fields', $service_fields);
         $this->view->set('service_id', $service->id);
         $this->view->set('client_id', $service->client_id);
-        $this->view->set('records', $records);
+        $this->view->set('records', $records ?? []);
         $this->view->set('record_types', $record_types);
         $this->view->set('vars', ($vars ?? new stdClass()));
 
@@ -1313,7 +1304,7 @@ class OvhDomains extends RegistrarModule
                     continue;
                 }
 
-                $vars->{'ns' . ($ns + 1)} = $nameserver['url'];
+                $vars->{'ns[' . ($ns + 1) . ']'} = $nameserver['url'];
             }
         } catch (Throwable $e) {
             $this->Input->setErrors(['errors' => ['contacts' => $e->getMessage()]]);
@@ -1321,8 +1312,12 @@ class OvhDomains extends RegistrarModule
 
         // Update domain nameservers
         if (!empty($post)) {
-            $this->setDomainNameservers($service_fields->domain, $service->module_row_id, $post);
-            $vars = (object) $post;
+            $this->setDomainNameservers($service_fields->domain, $service->module_row_id, $post['ns']);
+
+            $vars = (object) [];
+            foreach ($post['ns'] as $ns => $nameserver) {
+                $vars->{'ns[' . $ns . ']'} = $nameserver;
+            }
         }
 
         $this->view->set('service_fields', $service_fields);
@@ -1332,7 +1327,7 @@ class OvhDomains extends RegistrarModule
         $this->view->set('vars', ($vars ?? new stdClass()));
 
         $this->view->setDefaultView('components' . DS . 'modules' . DS . 'ovh_domains' . DS);
-        
+
         return $this->view->fetch();
     }
 
@@ -1402,7 +1397,7 @@ class OvhDomains extends RegistrarModule
         $this->view->set('service_fields', $service_fields);
         $this->view->set('service_id', $service->id);
         $this->view->set('client_id', $service->client_id);
-        $this->view->set('records', $records);
+        $this->view->set('records', $records ?? []);
         $this->view->set('record_types', $record_types);
         $this->view->set('vars', ($vars ?? new stdClass()));
 
@@ -1518,9 +1513,14 @@ class OvhDomains extends RegistrarModule
     {
         // Set default name servers
         if (!isset($vars->ns) && isset($package->meta->ns)) {
-            $i = 0;
+            $i = 1;
             foreach ($package->meta->ns as $ns) {
-                $vars->{'ns[' . $i++ . ']'} = $ns;
+                $vars->{'ns[' . $i . ']'} = $ns;
+                $i++;
+            }
+        } else {
+            foreach ($vars->ns ?? [] as $i => $ns) {
+                $vars->{'ns[' . $i . ']'} = $ns;
             }
         }
 
@@ -1554,9 +1554,14 @@ class OvhDomains extends RegistrarModule
     {
         // Set default name servers
         if (!isset($vars->ns) && isset($package->meta->ns)) {
-            $i = 0;
+            $i = 1;
             foreach ($package->meta->ns as $ns) {
-                $vars->{'ns[' . $i++ . ']'} = $ns;
+                $vars->{'ns[' . $i . ']'} = $ns;
+                $i++;
+            }
+        } else {
+            foreach ($vars->ns ?? [] as $i => $ns) {
+                $vars->{'ns[' . $i . ']'} = $ns;
             }
         }
 
@@ -1732,7 +1737,7 @@ class OvhDomains extends RegistrarModule
             // Add domain to be transferred to the cart
             $transfer = [
                 'domain' => $domain,
-                'duration' => 'P' . ($vars['qty'] ?? 1) . 'Y'
+                'duration' => 'P' . ($vars['qty'] ?? $vars['years'] ?? 1) . 'Y'
             ];
             $this->apiRequest($api, '/order/cart/' . $cart_id . '/domain', $row->meta->endpoint, $transfer, 'post');
 
@@ -1759,7 +1764,7 @@ class OvhDomains extends RegistrarModule
         if (!empty($domain_order->orderId)) {
             $order = $this->apiRequest($api, '/me/order/' . $domain_order->orderId . '/status', $row->meta->endpoint, [], 'get');
 
-            if (in_array($order->status, ['delivered', 'delivering', 'checking'])) {
+            if (in_array($order->status ?? $order->scalar, ['delivered', 'delivering', 'checking'])) {
                 return true;
             }
         }
@@ -1814,7 +1819,7 @@ class OvhDomains extends RegistrarModule
         unset($vars['years']);
 
         $transfer = $this->registerDomain($domain, $module_row_id, $vars);
-        $this->renewDomain($domain, $module_row_id, array_merge($vars, ['qty' => $qty]));
+        $this->renewDomain($domain, $module_row_id, array_merge($vars, ['years' => $qty]));
 
         return $transfer;
     }
@@ -1852,7 +1857,7 @@ class OvhDomains extends RegistrarModule
             $contacts[] = [
                 'external_id' => $contact->id ?? '',
                 'email' => $contact->email ?? '',
-                'phone' => $contact->cellPhone ?? '',
+                'phone' => $contact->phone ?? '',
                 'first_name' => $contact->firstName ?? '',
                 'last_name' => $contact->lastName ?? '',
                 'address1' => $contact->address['line1'] ?? '',
@@ -1882,7 +1887,7 @@ class OvhDomains extends RegistrarModule
         // Set request parameters
         $response = $this->apiRequest($api, '/domain/' . $domain, $row->meta->endpoint, [], 'get');
 
-        return ($response->transferLockStatus == 'locked');
+        return (($response->transferLockStatus ?? '') == 'locked');
     }
 
     /**
@@ -1970,7 +1975,7 @@ class OvhDomains extends RegistrarModule
         // Update contact
         $contact_params = [
             'email' => $vars['email'] ?? '',
-            'cellPhone' => $vars['phone'] ?? '',
+            'phone' => $vars['phone'] ?? '',
             'firstName' => $vars['first_name'] ?? '',
             'lastName' => $vars['last_name'] ?? '',
             'address' => [
@@ -2014,7 +2019,11 @@ class OvhDomains extends RegistrarModule
         // Set request parameters
         $params = [];
         foreach ($vars as $ns) {
-            $params[] = [
+            if (empty($ns)) {
+                continue;
+            }
+
+            $params['nameServers'][] = [
                 'host' => trim($ns),
                 'ip' => gethostbyname(trim($ns))
             ];
@@ -2053,29 +2062,56 @@ class OvhDomains extends RegistrarModule
      */
     public function getTlds($module_row_id = null)
     {
-        try {
-            $row = $this->getModuleRow($module_row_id);
-            if (!$row) {
-                $rows = $this->getModuleRows();
-                if (isset($rows[0])) {
-                    $row = $rows[0];
-                }
-                unset($rows);
-            }
+        // Fetch the TLDs results from the cache, if they exist
+        $cache = Cache::fetchCache(
+            'tlds',
+            Configure::get('Blesta.company_id') . DS . 'modules' . DS . 'ovh_domains' . DS
+        );
 
-            $api = $this->getApi($row->meta->application_key, $row->meta->secret_key, $row->meta->consumer_key, $row->meta->endpoint);
-
-            // Set request parameters
-            $response = (array) $this->apiRequest($api, '/domain/extensions', $row->meta->endpoint, [], 'get');
-
-            foreach ($response as &$tld) {
-                $tld = '.' . $tld;
-            }
-
-            return $response ?? [];
-        } catch (Throwable $e) {
-            return Configure::get('OvhDomains.tlds');
+        if ($cache) {
+            $response = unserialize(base64_decode($cache));
         }
+
+        if (!isset($response)) {
+            try {
+                $row = $this->getModuleRow($module_row_id);
+                if (!$row) {
+                    $rows = $this->getModuleRows();
+                    if (isset($rows[0])) {
+                        $row = $rows[0];
+                    }
+                    unset($rows);
+                }
+
+                $api = $this->getApi($row->meta->application_key, $row->meta->secret_key, $row->meta->consumer_key, $row->meta->endpoint);
+
+                // Set request parameters
+                $response = (array) $this->apiRequest($api, '/domain/extensions', $row->meta->endpoint, [], 'get');
+
+                foreach ($response as &$tld) {
+                    $tld = '.' . $tld;
+                }
+
+                // Save TLDs in cache
+                if (Configure::get('Caching.on') && is_writable(CACHEDIR)) {
+                    try {
+                        Cache::writeCache(
+                            'tlds',
+                            base64_encode(serialize($response)),
+                            strtotime(Configure::get('Blesta.cache_length')) - time(),
+                            Configure::get('Blesta.company_id') . DS . 'modules' . DS . 'ovh_domains' . DS
+                        );
+                    } catch (Exception $e) {
+                        // Write to cache failed, so disable caching
+                        Configure::set('Caching.on', false);
+                    }
+                }
+            } catch (Throwable $e) {
+                $response = Configure::get('OvhDomains.tlds');
+            }
+        }
+
+        return (array) $response;
     }
 
     /**
@@ -2104,6 +2140,7 @@ class OvhDomains extends RegistrarModule
      */
     public function getFilteredTldPricing($module_row_id = null, $filters = [])
     {
+        // Get all TLDs
         $tlds = $this->getTlds($module_row_id);
 
         // Get all currencies
@@ -2116,16 +2153,17 @@ class OvhDomains extends RegistrarModule
         }
 
         // Format pricing
-        $tld_yearly_prices = [];
+        $response = [];
         foreach ($tlds as $tld) {
             $tld = '.' . ltrim($tld, '.');
-            if (!isset($tld_yearly_prices[$tld])) {
-                $tld_yearly_prices[$tld] = [];
-            }
 
             // Filter by 'tlds'
             if (isset($filters['tlds']) && !in_array($tld, $filters['tlds'])) {
                 continue;
+            }
+
+            if (!isset($response[$tld])) {
+                $response[$tld] = [];
             }
 
             // Get TLD price
@@ -2136,15 +2174,13 @@ class OvhDomains extends RegistrarModule
 
             // Validate if the reseller currency exists in the company
             if (!isset($currencies[$currency])) {
-                $this->Input->setErrors(
-                    [
-                        'currency' => [
-                            'not_exists' => Language::_('OvhDomains.!error.currency.not_exists', true)
-                        ]
+                $this->Input->setErrors([
+                    'currency' => [
+                        'not_exists' => Language::_('OvhDomains.!error.currency.not_exists', true)
                     ]
-                );
+                ]);
 
-                return;
+                return [];
             }
 
             // Calculate term prices
@@ -2160,12 +2196,12 @@ class OvhDomains extends RegistrarModule
                         continue;
                     }
 
-                    if (!isset($tld_yearly_prices[$tld][$currency->code])) {
-                        $tld_yearly_prices[$tld][$currency->code] = [];
+                    if (!isset($response[$tld][$currency->code])) {
+                        $response[$tld][$currency->code] = [];
                     }
 
-                    if (!isset($tld_yearly_prices[$tld][$currency->code][$i])) {
-                        $tld_yearly_prices[$tld][$currency->code][$i] = [
+                    if (!isset($response[$tld][$currency->code][$i])) {
+                        $response[$tld][$currency->code][$i] = [
                             'register' => null,
                             'transfer' => null,
                             'renew' => null
@@ -2173,9 +2209,9 @@ class OvhDomains extends RegistrarModule
                     }
 
                     foreach ($tld_price as $category => $price) {
-                        $tld_yearly_prices[$tld][$currency->code][$i][$category] = $this->Currencies->convert(
-                            ($price->value ?? 0) * $i,
-                            $price->currencyCode ?? 'CAD',
+                        $response[$tld][$currency->code][$i][$category] = $this->Currencies->convert(
+                            ($price['value'] ?? 0) * $i,
+                            $price['currencyCode'] ?? 'CAD',
                             $currency->code,
                             Configure::get('Blesta.company_id')
                         );
@@ -2184,7 +2220,7 @@ class OvhDomains extends RegistrarModule
             }
         }
 
-        return $tld_yearly_prices;
+        return $response;
     }
 
     /**
@@ -2199,31 +2235,58 @@ class OvhDomains extends RegistrarModule
         $row = $this->getModuleRow($module_row_id);
         $api = $this->getApi($row->meta->application_key, $row->meta->secret_key, $row->meta->consumer_key, $row->meta->endpoint);
 
-        // Create a new order cart
-        $subsidiary = trim(strtoupper(str_replace('ovh-', '', $row->meta->endpoint)));
-        $cart_params = [
-            'ovhSubsidiary' => ($subsidiary == 'EU') ? 'FR' : $subsidiary
-        ];
-        $cart = $this->apiRequest($api, '/order/cart', $row->meta->endpoint, $cart_params, 'post');
+        // Fetch the TLD pricing from the cache, if they exist
+        $cache = Cache::fetchCache(
+            'tlds_price_' . ltrim($tld, '.'),
+            Configure::get('Blesta.company_id') . DS . 'modules' . DS . 'ovh_domains' . DS
+        );
 
-        // Add the domain to the cart
-        $domain = [
-            'domain' => md5(time() . rand(0, 255)) . '.' . $tld,
-            'duration' => 'P1Y'
-        ];
-        $response = $this->apiRequest($api, '/order/cart/' . ($cart->cartId ?? '') . '/domain', $row->meta->endpoint, $domain, 'post');
+        if ($cache) {
+            $response = unserialize(base64_decode($cache));
+        }
+
+        // Create a new order cart
+        if (!isset($response)) {
+            $subsidiary = trim(strtoupper(str_replace('ovh-', '', $row->meta->endpoint)));
+            $cart_params = [
+                'ovhSubsidiary' => ($subsidiary == 'EU') ? 'FR' : $subsidiary
+            ];
+            $cart = $this->apiRequest($api, '/order/cart', $row->meta->endpoint, $cart_params, 'post');
+
+            // Add the domain to the cart
+            $domain = [
+                'domain' => md5(time() . rand(0, 255)) . '.' . ltrim($tld, '.'),
+                'duration' => 'P1Y'
+            ];
+            $response = $this->apiRequest($api, '/order/cart/' . ($cart->cartId ?? '') . '/domain', $row->meta->endpoint, $domain, 'post');
+
+            // Save pricing in cache
+            if (Configure::get('Caching.on') && is_writable(CACHEDIR)) {
+                try {
+                    Cache::writeCache(
+                        'tlds_price_' . ltrim($tld, '.'),
+                        base64_encode(serialize($response)),
+                        strtotime(Configure::get('Blesta.cache_length')) - time(),
+                        Configure::get('Blesta.company_id') . DS . 'modules' . DS . 'ovh_domains' . DS
+                    );
+                } catch (Exception $e) {
+                    // Write to cache failed, so disable caching
+                    Configure::set('Caching.on', false);
+                }
+            }
+        }
 
         $pricing = [];
         if (!empty($response->prices)) {
             foreach ($response->prices as $price) {
-                if ($price->label == 'PRICE') {
-                    $price->label = 'REGISTER';
+                if ($price['label'] == 'PRICE') {
+                    $price['label'] = 'REGISTER';
                 }
-                if ($price->label == 'TOTAL') {
-                    $price->label = 'TRANSFER';
+                if ($price['label'] == 'TOTAL') {
+                    $price['label'] = 'TRANSFER';
                 }
 
-                $pricing[strtolower($price->label)] = $price->price;
+                $pricing[strtolower($price['label'])] = $price['price'];
             }
         }
 
@@ -2297,7 +2360,7 @@ class OvhDomains extends RegistrarModule
                     $this->log($request_url, serialize($response), 'output', false);
                 } else {
                     $this->Input->setErrors(['errors' => [$endpoint => $e->getMessage()]]);
-                    $this->log($request_url, serialize($e->getTrace()), 'output', false);
+                    $this->log($request_url, serialize($e->getTraceAsString()), 'output', false);
                 }
             }
         }
