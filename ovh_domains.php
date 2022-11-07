@@ -592,13 +592,25 @@ class OvhDomains extends RegistrarModule
         }
 
         // Return service fields
-        return [
+        $service_fields = [
             [
                 'key' => 'domain',
                 'value' => $vars['domain'],
                 'encrypted' => 0
             ]
         ];
+
+        for ($i = 1; $i <= 5; $i++) {
+            if (!empty($vars['ns'][$i])) {
+                $service_fields[] = [
+                    'key' => 'ns[' . $i . ']',
+                    'value' => $vars['ns'][$i],
+                    'encrypted' => 0
+                ];
+            }
+        }
+
+        return $service_fields;
     }
 
     /**
@@ -1029,11 +1041,18 @@ class OvhDomains extends RegistrarModule
         // Get service fields
         $service_fields = $this->serviceFieldsToObject($service->fields);
 
+        // Set default name servers
+        $vars = (object) [];
+        for ($i = 1; $i <= 5; $i++) {
+            if (empty($vars->{'ns[' . $i . ']'}) && !empty($service_fields->{'ns[' . $i . ']'})) {
+                $vars->{'ns[' . $i . ']'} = $service_fields->{'ns[' . $i . ']'};
+            }
+        }
+
         // Fetch domain nameservers
         try {
             $nameservers = $this->getDomainNameServers($service_fields->domain, $service->module_row_id);
 
-            $vars = (object) [];
             foreach ($nameservers as $ns => $nameserver) {
                 if (!is_array($nameserver)) {
                     continue;
@@ -1294,11 +1313,18 @@ class OvhDomains extends RegistrarModule
         // Get service fields
         $service_fields = $this->serviceFieldsToObject($service->fields);
 
+        // Set default name servers
+        $vars = (object) [];
+        for ($i = 1; $i <= 5; $i++) {
+            if (empty($vars->{'ns[' . $i . ']'}) && !empty($service_fields->{'ns[' . $i . ']'})) {
+                $vars->{'ns[' . $i . ']'} = $service_fields->{'ns[' . $i . ']'};
+            }
+        }
+
         // Fetch domain nameservers
         try {
             $nameservers = $this->getDomainNameServers($service_fields->domain, $service->module_row_id);
 
-            $vars = (object) [];
             foreach ($nameservers as $ns => $nameserver) {
                 if (!is_array($nameserver)) {
                     continue;
@@ -1512,15 +1538,11 @@ class OvhDomains extends RegistrarModule
     public function getAdminAddFields($package, $vars = null)
     {
         // Set default name servers
-        if (!isset($vars->ns) && isset($package->meta->ns)) {
-            $i = 1;
-            foreach ($package->meta->ns as $ns) {
-                $vars->{'ns[' . $i . ']'} = $ns;
-                $i++;
-            }
-        } else {
-            foreach ($vars->ns ?? [] as $i => $ns) {
-                $vars->{'ns[' . $i . ']'} = $ns;
+        if (empty($vars->{'ns[1]'})) {
+            for ($i = 1; $i <= 5; $i++) {
+                if (empty($vars->{'ns[' . $i . ']'}) && !empty($package->meta->ns[$i - 1])) {
+                    $vars->{'ns[' . $i . ']'} = $package->meta->ns[$i - 1];
+                }
             }
         }
 
@@ -1553,15 +1575,11 @@ class OvhDomains extends RegistrarModule
     public function getClientAddFields($package, $vars = null)
     {
         // Set default name servers
-        if (!isset($vars->ns) && isset($package->meta->ns)) {
-            $i = 1;
-            foreach ($package->meta->ns as $ns) {
-                $vars->{'ns[' . $i . ']'} = $ns;
-                $i++;
-            }
-        } else {
-            foreach ($vars->ns ?? [] as $i => $ns) {
-                $vars->{'ns[' . $i . ']'} = $ns;
+        if (empty($vars->{'ns[1]'})) {
+            for ($i = 1; $i <= 5; $i++) {
+                if (empty($vars->{'ns[' . $i . ']'}) && !empty($package->meta->ns[$i - 1])) {
+                    $vars->{'ns[' . $i . ']'} = $package->meta->ns[$i - 1];
+                }
             }
         }
 
@@ -1909,8 +1927,8 @@ class OvhDomains extends RegistrarModule
         $response = $this->apiRequest($api, '/domain/' . $domain . '/nameServer', $row->meta->endpoint, [], 'get');
 
         $nameservers = [];
-        if (!is_scalar($response)) {
-            foreach ($response as $nameserver_id) {
+        if (!is_iterable($response)) {
+            foreach ($response ?? [] as $nameserver_id) {
                 $nameserver = $this->apiRequest($api, '/domain/' . $domain . '/nameServer/' . $nameserver_id, $row->meta->endpoint, [], 'get');
                 $nameservers[] = [
                     'url' => $nameserver->host,
@@ -1918,6 +1936,8 @@ class OvhDomains extends RegistrarModule
                 ];
             }
         }
+
+        $this->Input->setErrors([]);
 
         return $nameservers;
     }
