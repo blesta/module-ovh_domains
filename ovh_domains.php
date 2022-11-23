@@ -1705,7 +1705,9 @@ class OvhDomains extends RegistrarModule
         // Set request parameters
         $domain = $this->apiRequest($api, '/domain/' . $this->getServiceDomain($service) . '/serviceInfos', $row->meta->endpoint, [], 'get');
 
-        return date($format, strtotime($domain->services->expiration ?? $service->date_renews));
+        return isset($domain->services->expiration)
+            ? date($format, strtotime($domain->services->expiration))
+            : false;
     }
 
     /**
