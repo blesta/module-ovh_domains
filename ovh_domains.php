@@ -2192,7 +2192,7 @@ class OvhDomains extends RegistrarModule
             $tld_price = $this->getTldPrice($tld, $module_row_id);
 
             // Get currency
-            $currency = $tld_price['register']->currencyCode ?? 'CAD';
+            $currency = $tld_price['register']['currencyCode'] ?? 'CAD';
 
             // Validate if the reseller currency exists in the company
             if (!isset($currencies[$currency])) {
