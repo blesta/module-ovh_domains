@@ -2192,7 +2192,7 @@ class OvhDomains extends RegistrarModule
             $tld_price = $this->getTldPrice($tld, $module_row_id);
 
             // Get currency
-            $currency = $tld_price['register']->currencyCode ?? 'CAD';
+            $currency = $tld_price['register']['currencyCode'] ?? 'CAD';
 
             // Validate if the reseller currency exists in the company
             if (!isset($currencies[$currency])) {
@@ -2357,7 +2357,7 @@ class OvhDomains extends RegistrarModule
             $request_url = ($this->endpoints[$endpoint] ?? $endpoint . '/') . $path;
 
             // Log request
-            $this->log($request_url, serialize($params), 'input', true);
+            $this->log($request_url, json_encode($params), 'input', true);
 
             // Set the domain status
             try {
@@ -2365,9 +2365,9 @@ class OvhDomains extends RegistrarModule
 
                 if (isset($response->class) && isset($response->message)) {
                     $this->Input->setErrors(['errors' => [$response->class => $response->message]]);
-                    $this->log($request_url, serialize($response), 'output', false);
+                    $this->log($request_url, json_encode($response), 'output', false);
                 } else {
-                    $this->log($request_url, serialize($response), 'output', true);
+                    $this->log($request_url, json_encode($response), 'output', true);
 
                     return $response;
                 }
@@ -2379,10 +2379,10 @@ class OvhDomains extends RegistrarModule
                     }
 
                     $this->Input->setErrors(['errors' => [$endpoint => $response->message ?? $e->getMessage()]]);
-                    $this->log($request_url, serialize($response), 'output', false);
+                    $this->log($request_url, json_encode($response), 'output', false);
                 } else {
                     $this->Input->setErrors(['errors' => [$endpoint => $e->getMessage()]]);
-                    $this->log($request_url, serialize($e->getTraceAsString()), 'output', false);
+                    $this->log($request_url, json_encode($e->getTraceAsString()), 'output', false);
                 }
             }
         }
