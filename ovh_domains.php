@@ -1690,6 +1690,38 @@ class OvhDomains extends RegistrarModule
     }
 
     /**
+     * Gets the domain registration date
+     *
+     * @param stdClass $service The service belonging to the domain to lookup
+     * @param string $format The format to return the registration date in
+     * @return string The domain registration date in UTC time in the given format
+     * @see Services::get()
+     */
+    public function getRegistrationDate($service, $format = 'Y-m-d H:i:s')
+    {
+        $row = $this->getModuleRow($service->module_row_id);
+        $api = $this->getApi(
+            $row->meta->application_key,
+            $row->meta->secret_key,
+            $row->meta->consumer_key,
+            $row->meta->endpoint
+        );
+
+        // Set request parameters
+        $domain = $this->apiRequest(
+            $api,
+            '/domain/' . $this->getServiceDomain($service) . '/serviceInfos',
+            $row->meta->endpoint,
+            [],
+            'get'
+        );
+
+        return isset($domain->services->creation)
+            ? date($format, strtotime($domain->services->creation))
+            : false;
+    }
+
+    /**
      * Gets the domain expiration date
      *
      * @param stdClass $service The service belonging to the domain to lookup
@@ -1700,10 +1732,21 @@ class OvhDomains extends RegistrarModule
     public function getExpirationDate($service, $format = 'Y-m-d H:i:s')
     {
         $row = $this->getModuleRow($service->module_row_id);
-        $api = $this->getApi($row->meta->application_key, $row->meta->secret_key, $row->meta->consumer_key, $row->meta->endpoint);
+        $api = $this->getApi(
+            $row->meta->application_key,
+            $row->meta->secret_key,
+            $row->meta->consumer_key,
+            $row->meta->endpoint
+        );
 
         // Set request parameters
-        $domain = $this->apiRequest($api, '/domain/' . $this->getServiceDomain($service) . '/serviceInfos', $row->meta->endpoint, [], 'get');
+        $domain = $this->apiRequest(
+            $api,
+            '/domain/' . $this->getServiceDomain($service) . '/serviceInfos',
+            $row->meta->endpoint,
+            [],
+            'get'
+        );
 
         return isset($domain->services->expiration)
             ? date($format, strtotime($domain->services->expiration))
