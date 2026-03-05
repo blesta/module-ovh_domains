@@ -1,49 +1,60 @@
 <?php /** @var View $this **/ ?>
 
-<h6 class="form-section-header first"><?php $this->_('OvhDomains.tab_client_settings.heading');?></h6>
+<h6 class="form-section-header first"><?php $this->_('OvhDomains.tab_client_settings.heading'); ?></h6>
 
-<?php
-    $this->Form->create();
-    ?>
+<?php $this->Form->create(); ?>
 <div>
     <div class="mb-3">
-        <?php
-
-            $this->Form->label($this->_('OvhDomains.tab_client_settings.field_registrar_lock', true), 'registrarlock', ['class' => 'form-label']);
-            ?>
+        <?php $this->Form->label(
+            $this->_('OvhDomains.tab_client_settings.field_registrar_lock', true),
+            'registrarlock',
+            ['class' => 'form-label'],
+        ); ?>
         <div class="form-check">
             <?php
-
-                $this->Form->fieldRadio('transferLockStatus', 'locked', ($vars->transferLockStatus ?? (($is_locked ?? false) ? 'locked' : null)) == 'locked', ['id' => 'registrarlock_yes', 'class' => 'form-check-input']);
-                $this->Form->label($this->_('OvhDomains.tab_client_settings.field_registrar_lock_yes', true), 'registrarlock_yes', ['class' => 'form-check-label']);
-                ?>
+            $this->Form->fieldRadio(
+                'transferLockStatus',
+                'locked',
+                ($vars->transferLockStatus ?? ($is_locked ?? false ? 'locked' : null)) == 'locked',
+                ['id' => 'registrarlock_yes', 'class' => 'form-check-input'],
+            );
+            $this->Form->label(
+                $this->_('OvhDomains.tab_client_settings.field_registrar_lock_yes', true),
+                'registrarlock_yes',
+                ['class' => 'form-check-label'],
+            );
+            ?>
         </div>
         <div class="form-check">
             <?php
-
-                $this->Form->fieldRadio('transferLockStatus', 'unlocked', ($vars->transferLockStatus ?? null) == 'unlocked', ['id' => 'registrarlock_no', 'class' => 'form-check-input']);
-                $this->Form->label($this->_('OvhDomains.tab_client_settings.field_registrar_lock_no', true), 'registrarlock_no', ['class' => 'form-check-label']);
-                ?>
+            $this->Form->fieldRadio(
+                'transferLockStatus',
+                'unlocked',
+                ($vars->transferLockStatus ?? null) == 'unlocked',
+                ['id' => 'registrarlock_no', 'class' => 'form-check-input'],
+            );
+            $this->Form->label(
+                $this->_('OvhDomains.tab_client_settings.field_registrar_lock_no', true),
+                'registrarlock_no',
+                ['class' => 'form-check-label'],
+            );
+            ?>
         </div>
     </div>
 
-    <?php
-        if (($epp_code ?? false) && !is_null($auth_code ?? null)) {
-            ?>
-    <h6 class="form-section-header"><?php $this->_('OvhDomains.tab_client_settings.heading_auth_code');?></h6>
-    <p class="text-muted"><?php $this->_('OvhDomains.tab_client_settings.text_auth_code');?> <span class="badge bg-info"><?php echo $this->Html->safe($auth_code ?? '');?></span></p>
-    <?php
-        }
-        ?>
+    <?php if (($epp_code ?? false) && !is_null($auth_code ?? null)) { ?>
+    <h6 class="form-section-header"><?php $this->_('OvhDomains.tab_client_settings.heading_auth_code'); ?></h6>
+    <p class="text-muted"><?php $this->_(
+        'OvhDomains.tab_client_settings.text_auth_code',
+    ); ?> <span class="badge bg-info"><?php echo $this->Html->safe($auth_code ?? ''); ?></span></p>
+    <?php } ?>
 
 </div>
 
 <div class="d-flex justify-content-end">
-    <?php
-
-        $this->Form->fieldSubmit(null, $this->_('OvhDomains.tab_client_settings.field_submit', true), ['class' => 'btn btn-primary']);
-        ?>
+    <?php $this->Form->fieldSubmit(null, $this->_('OvhDomains.tab_client_settings.field_submit', true), [
+        'class' => 'btn btn-primary',
+    ]); ?>
 </div>
-<?php
-    $this->Form->end();
-    ?>
+<?php $this->Form->end();
+?>
