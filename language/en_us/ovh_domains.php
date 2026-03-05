@@ -9,6 +9,7 @@ $lang['OvhDomains.module_row'] = 'Account';
 $lang['OvhDomains.module_row_plural'] = 'Accounts';
 $lang['OvhDomains.module_group'] = 'Account Group';
 
+$lang['OvhDomains.back_to_manage'] = 'Back';
 
 // Module management
 $lang['OvhDomains.add_module_row'] = 'Add Account';
