@@ -1,8 +1,10 @@
 <?php /** @var View $this **/ ?>
 
-<h6 class="form-section-header first"><?php $this->_('OvhDomains.tab_client_settings.heading'); ?></h6>
+<h6 class="form-section-header"><?php $this->_('OvhDomains.tab_client_settings.heading'); ?></h6>
 
-<?php $this->Form->create(); ?>
+<?php
+$this->Form->create();
+?>
 <div>
     <div class="mb-3">
         <?php $this->Form->label(
@@ -53,8 +55,9 @@
 
 <div class="d-flex justify-content-end">
     <?php $this->Form->fieldSubmit(null, $this->_('OvhDomains.tab_client_settings.field_submit', true), [
-        'class' => 'btn btn-primary',
+        'class' => 'btn btn-primary'
     ]); ?>
 </div>
-<?php $this->Form->end();
+<?php
+$this->Form->end();
 ?>
