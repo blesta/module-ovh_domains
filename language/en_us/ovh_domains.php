@@ -15,6 +15,8 @@ $lang['OvhDomains.back_to_manage'] = 'Back';
 $lang['OvhDomains.add_module_row'] = 'Add Account';
 $lang['OvhDomains.add_module_group'] = 'Add Account Group';
 $lang['OvhDomains.manage.module_rows_title'] = 'Accounts';
+$lang['OvhDomains.manage.tab_rows'] = 'Servers';
+$lang['OvhDomains.manage.tab_groups'] = 'Server Groups';
 
 $lang['OvhDomains.manage.module_rows_heading.application_key'] = 'Application Key';
 $lang['OvhDomains.manage.module_rows_heading.secret_key'] = 'Secret Key';
