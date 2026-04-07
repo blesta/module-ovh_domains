@@ -939,9 +939,9 @@ class OvhDomains extends RegistrarModule
         ];
 
         // Check if DNS Management is enabled
-        if (!$this->featureServiceEnabled('dns_management', $service)) {
-            unset($tabs['tabDns']);
-        }
+        // if (!$this->featureServiceEnabled('dns_management', $service)) {
+        //     unset($tabs['tabDns']);
+        // }
 
         return $tabs;
     }

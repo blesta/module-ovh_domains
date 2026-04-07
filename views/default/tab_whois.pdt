@@ -9,22 +9,18 @@ $this->Form->create();
 <div>
     <?php foreach ($whois_fields ?? [] as $name => $field) { ?>
     <div class="mb-3">
-    <?php
-    $this->Form->label($field['label'], $name, ['class' => 'form-label']);
+        <?php
+        $this->Form->label($field['label'], $name, ['class' => 'form-label']);
 
-    if ($field['type'] == 'select') {
-        $options = [];
-        if (!is_array($field['options'])) {
-            $options = ${$field['options']} ?? [];
+        if ($field['type'] == 'select') {
+            $options = [];
+            $options = !is_array($field['options']) ? ${$field['options']} ?? [] : $field['options'] ?? [];
+
+            $this->Form->fieldSelect($name, $options, $vars->{$name} ?? '', ['id' => $name, 'class' => 'form-select']);
         } else {
-            $options = $field['options'] ?? [];
+            $this->Form->fieldText($name, $vars->{$name} ?? '', ['id' => $name, 'class' => 'form-control']);
         }
-
-        $this->Form->fieldSelect($name, $options, $vars->{$name} ?? '', ['id' => $name, 'class' => 'form-select']);
-    } else {
-        $this->Form->fieldText($name, $vars->{$name} ?? '', ['id' => $name, 'class' => 'form-control']);
-    }
-    ?>
+        ?>
     </div>
     <?php } ?>
 </div>

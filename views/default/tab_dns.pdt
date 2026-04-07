@@ -29,10 +29,11 @@ $this->Form->create();
                 <td><?php echo $this->Html->safe($record['target'] ?? ''); ?></td>
                 <td><?php echo $this->Html->safe($record['ttl'] ?? ''); ?></td>
                 <td>
-                    <?php $this->Form->fieldButton('delete', $this->_('OvhDomains.tab_dns.field_delete', true), [
-                        'class' => 'btn btn-sm text-danger btn-link',
+                    <?php $this->Form->fieldButton('delete', '<i class="bi bi-trash"></i>', [
+                        'class' => 'btn btn-sm btn-outline-danger',
                         'value' => $record['id'] ?? null,
                         'type' => 'submit',
+                        'title' => $this->_('OvhDomains.tab_dns.field_delete', true),
                     ]); ?>
                 </td>
             </tr>

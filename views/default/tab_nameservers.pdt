@@ -7,10 +7,10 @@ $this->Form->create();
 <div>
     <?php foreach ($nameserver_fields ?? [] as $name => $field) { ?>
     <div class="mb-3">
-    <?php
-    $this->Form->label($field['label'], $name, ['class' => 'form-label']);
-    $this->Form->fieldText($name, $vars->{$name} ?? '', ['id' => $name, 'class' => 'form-control']);
-    ?>
+        <?php
+        $this->Form->label($field['label'], $name, ['class' => 'form-label']);
+        $this->Form->fieldText($name, $vars->{$name} ?? '', ['id' => $name, 'class' => 'form-control']);
+        ?>
     </div>
     <?php } ?>
 </div>
