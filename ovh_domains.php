@@ -2142,7 +2142,7 @@ class OvhDomains extends RegistrarModule
         );
 
         if ($cache) {
-            $response = unserialize(base64_decode($cache));
+            $response = safe_unserialize(base64_decode($cache));
         }
 
         if (!isset($response)) {
@@ -2315,7 +2315,7 @@ class OvhDomains extends RegistrarModule
         );
 
         if ($cache) {
-            $response = unserialize(base64_decode($cache));
+            $response = safe_unserialize(base64_decode($cache));
         }
 
         // Create a new order cart
