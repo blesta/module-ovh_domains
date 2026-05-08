@@ -1,6 +1,7 @@
 <?php
 
 use Blesta\Core\Util\Validate\Server;
+use Blesta\Core\Util\Common\Classes\Model;
 
 /**
  * OVH Domains Module
@@ -2142,7 +2143,7 @@ class OvhDomains extends RegistrarModule
         );
 
         if ($cache) {
-            $response = safe_unserialize(base64_decode($cache));
+            $response = Model::safeUnserialize(base64_decode($cache));
         }
 
         if (!isset($response)) {
@@ -2315,7 +2316,7 @@ class OvhDomains extends RegistrarModule
         );
 
         if ($cache) {
-            $response = safe_unserialize(base64_decode($cache));
+            $response = Model::safeUnserialize(base64_decode($cache));
         }
 
         // Create a new order cart
